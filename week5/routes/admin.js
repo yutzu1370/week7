@@ -2,13 +2,20 @@ const express = require('express')
 const moment = require('moment')
 
 const router = express.Router()
+const config = require('../config/index')
 const { dataSource } = require('../db/data-source')
 const logger = require('../utils/logger')('Admin')
+const auth = require('../middlewares/auth')({
+  secret: config.get('secret').jwtSecret,
+  userRepository: dataSource.getRepository('User'),
+  logger
+})
+const isCoach = require('../middlewares/isCoach')
 
 const { isNotValidString, isNotValidInteger, isUndefined } = require('../utils/validUtils')
 
 //須注意前後順序，後者userId會被視為字串
-router.post('/coaches/courses', async (req, res, next) => {
+router.post('/coaches/courses', auth, isCoach, async (req, res, next) => {
   try {
     
     const { user_id, skill_id, name, description, start_at, end_at, max_participants, meeting_url } = req.body
@@ -86,7 +93,7 @@ router.post('/coaches/courses', async (req, res, next) => {
   }
 })
 
-router.put('/coaches/courses/:courseId', async (req, res, next) => {
+router.put('/coaches/courses/:courseId', auth, isCoach, async (req, res, next) => {
   try {
     const { courseId } = req.params
     
