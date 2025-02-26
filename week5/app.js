@@ -8,6 +8,8 @@ const creditPackageRouter = require('./routes/creditPackage')
 const skillRouter = require('./routes/skill')
 const userRouter = require('./routes/user')
 const adminRouter = require('./routes/admin')
+const courseRouter = require('./routes/course')
+const coachRouter = require('./routes/coach')
 
 const app = express()
 app.use(cors())
@@ -30,8 +32,13 @@ app.get('/healthcheck', (req, res) => {
 })
 app.use('/api/credit-package', creditPackageRouter)
 app.use('/api/coaches/skill', skillRouter)
+app.use('/api/coaches', coachRouter)
 app.use('/api/user', userRouter)
 app.use('/api/admin', adminRouter)
+app.use('/api/course', courseRouter)
+
+
+
 // 500 伺服器錯誤統一處理
 app.use((err, req, res, next) => {
   req.log.error(err)
