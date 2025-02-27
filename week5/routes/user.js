@@ -1,5 +1,6 @@
 const express = require('express')
 const bcrypt = require('bcrypt')
+const validator = require('validator');
 
 const router = express.Router()
 const config = require('../config/index')
@@ -12,7 +13,7 @@ const auth = require('../middlewares/auth')({
   userRepository: dataSource.getRepository('User'),
   logger
 })
-
+const appError = require('../service/appError')
 
 //saltRounds：指定「鹽（salt）」的計算輪數，用來增加哈希運算的強度，提高破解難度
 const saltRounds = 10
@@ -40,6 +41,19 @@ router.post('/signup', async (req, res, next) => {
       })
       return
     }
+
+    /*
+    // 暱稱 name 長度需至少 2 個字元以上
+  if(!validator.isLength(name,{ min: 3 })){
+    return next(appError(400, '暱稱 name 長度需至少 2 個字元以上', next));
+  }
+ */
+  // 信箱 email 格式正確
+
+  if (!validator.isEmail(email)) {
+    return next(appError(400, 'Email 格式錯誤', next));
+  }
+
 
     const userRepository = dataSource.getRepository('User')
     // 檢查 email 是否已存在
