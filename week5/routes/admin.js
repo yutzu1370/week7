@@ -5,11 +5,7 @@ const router = express.Router()
 const config = require('../config/index')
 const { dataSource } = require('../db/data-source')
 const logger = require('../utils/logger')('Admin')
-const auth = require('../middlewares/auth')({
-  secret: config.get('secret').jwtSecret,
-  userRepository: dataSource.getRepository('User'),
-  logger
-})
+const auth = require('../middlewares/auth')
 const isCoach = require('../middlewares/isCoach')
 
 const { isNotValidString, isNotValidInteger, isUndefined } = require('../utils/validUtils')
@@ -178,6 +174,7 @@ router.put('/coaches/courses/:courseId', auth, isCoach, async (req, res, next) =
     next(error)
   }
 })
+
 router.post('/coaches/:userId', async (req, res, next) => {
   try {
     const {userId} = req.params

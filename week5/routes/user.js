@@ -7,13 +7,9 @@ const config = require('../config/index')
 const { dataSource } = require('../db/data-source')
 const logger = require('../utils/logger')('User')
 const { isUndefined, isNotValidString,isValidUUID,isValidPassword } = require('../utils/validUtils')
-const generateJWT = require('../utils/generateJWT')
-const auth = require('../middlewares/auth')({
-  secret:config.get('secret').jwtSecret,
-  userRepository: dataSource.getRepository('User'),
-  logger
-})
-const appError = require('../service/appError')
+const {generateJWT} = require('../utils/generateJWT')
+const auth = require('../middlewares/auth')
+const appError = require('../utils/appError')
 
 //saltRounds：指定「鹽（salt）」的計算輪數，用來增加哈希運算的強度，提高破解難度
 const saltRounds = 10
@@ -41,17 +37,14 @@ router.post('/signup', async (req, res, next) => {
       })
       return
     }
-
-    /*
-    // 暱稱 name 長度需至少 2 個字元以上
+// 暱稱 name 長度需至少 2 個字元以上
   if(!validator.isLength(name,{ min: 3 })){
     return next(appError(400, '暱稱 name 長度需至少 2 個字元以上', next));
   }
- */
-  // 信箱 email 格式正確
-
+// 信箱 email 格式正確
   if (!validator.isEmail(email)) {
-    return next(appError(400, 'Email 格式錯誤', next));
+    next(appError(400, "Email 格式錯誤"))
+    return
   }
 
 
@@ -119,7 +112,7 @@ router.post('/login', async (req, res, next) => {
     }
     const userRepository = dataSource.getRepository('User')
     const existingUser = await userRepository.findOne({
-      select: ['id', 'name', 'password'],
+      select: ['id', 'name', 'role','password'],
       where: { email }
     })
 
@@ -140,7 +133,8 @@ router.post('/login', async (req, res, next) => {
       return
     }
     const token = await generateJWT({
-      id: existingUser.id
+      id: existingUser.id,
+      role: existingUser.role
     },config.get('secret.jwtSecret'), {
       expiresIn: `${config.get('secret.jwtExpiresDay')}`
     })
@@ -163,15 +157,25 @@ router.post('/login', async (req, res, next) => {
 router.get('/profile', auth, async (req, res, next) => {
   try {
     const { id } = req.user
+    console.log(id);
+    
+    if(isNotValidString(id)){
+      return next(appError(400, '欄位未填寫正確'));
+    }
     const userRepository = dataSource.getRepository('User')
     const user = await userRepository.findOne({
       select: ['name', 'email'],
       where: { id }
     })
+
+    
+
+
     res.status(200).json({
       status: 'success',
       data: {
-        user
+        email: user.email,
+        name: user.name
       }
     })
   } catch (error) {
@@ -184,15 +188,17 @@ router.put('/profile', auth, async (req, res, next) => {
   try {
     const { id } = req.user
     const { name } = req.body
-    if (isUndefined(name) || isNotValidSting(name)) {
+    if (isUndefined(name) || isNotValidString(name)) {
       logger.warn('欄位未填寫正確')
-      res.status(400).json({
-        status: 'failed',
-        message: '欄位未填寫正確'
-      })
+      next(appError(400, '欄位未填寫正確'))
       return
     }
+
+
+
+
     const userRepository = dataSource.getRepository('User')
+ //檢查使用者名稱為變更
     const user = await userRepository.findOne({
       select: ['name'],
       where: {
@@ -200,36 +206,25 @@ router.put('/profile', auth, async (req, res, next) => {
       }
     })
     if (user.name === name) {
-      res.status(400).json({
-        status: 'failed',
-        message: '使用者名稱未變更'
-      })
+      next(appError(400, '使用者名稱未變更'))
       return
     }
-    const updatedResult = await userRepository.update({
-      id,
-      name: user.name
+
+
+    const updateUser = await userRepository.update({
+      id
     }, {
       name
     })
-    if (updatedResult.affected === 0) {
-      res.status(400).json({
-        status: 'failed',
-        message: '更新使用者資料失敗'
-      })
+
+    if (updateUser.affected === 0) {
+      logger.warn('更新使用者資料失敗')
+      next(appError(400, '更新使用者資料失敗'))
       return
     }
-    const result = await userRepository.findOne({
-      select: ['name'],
-      where: {
-        id
-      }
-    })
+
     res.status(200).json({
-      status: 'success',
-      data: {
-        user: result
-      }
+      status: 'success'
     })
   } catch (error) {
     logger.error('取得使用者資料錯誤:', error)

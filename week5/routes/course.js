@@ -5,11 +5,7 @@ const router = express.Router()
 const config = require('../config/index')
 const { dataSource } = require('../db/data-source')
 const logger = require('../utils/logger')('Course')
-const auth = require('../middlewares/auth')({
-  secret: config.get('secret').jwtSecret,
-  userRepository: dataSource.getRepository('User'),
-  logger
-})
+const auth = require('../middlewares/auth')
 
 router.get('/', async (req, res, next) => {
   try {

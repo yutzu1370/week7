@@ -10,6 +10,7 @@ const userRouter = require('./routes/user')
 const adminRouter = require('./routes/admin')
 const courseRouter = require('./routes/course')
 const coachRouter = require('./routes/coach')
+const appError = require('./utils/appError')
 
 const app = express()
 app.use(cors())
@@ -37,15 +38,20 @@ app.use('/api/user', userRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/course', courseRouter)
 
+//404
+app.use((req, res, next) => {
+  next(appError(404, "無此路由"))
+  return 
+})
 
-
-// 500 伺服器錯誤統一處理
+// 放在所有路由之後，統一處理錯誤
 app.use((err, req, res, next) => {
   req.log.error(err)
-  res.status(500).json({
-    status: 'error',
-    message: '伺服器錯誤'
-  })
+  const statusCode = err.status || 500; // 400, 409, 500 ...
+  res.status(statusCode).json({
+    status: statusCode === 500 ? 'error' : 'failed',
+    message: err.message || '伺服器錯誤'
+  });
 })
 
 module.exports = app
