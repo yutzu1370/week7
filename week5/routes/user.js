@@ -10,31 +10,25 @@ const { isUndefined, isNotValidString,isValidUUID,isValidPassword } = require('.
 const {generateJWT} = require('../utils/generateJWT')
 const auth = require('../middlewares/auth')
 const appError = require('../utils/appError')
-
+const handleErrorAsync = require('../utils/handleErrorAsync');
 //saltRounds：指定「鹽（salt）」的計算輪數，用來增加哈希運算的強度，提高破解難度
 const saltRounds = 10
 
 
 
 // 新增使用者
-router.post('/signup', async (req, res, next) => {
-  try {
+router.post('/signup', handleErrorAsync(async (req, res, next) => {
+  
     const { name, email, password } = req.body
     // 驗證必填欄位
     if (isUndefined(name) || isNotValidString(name) || isUndefined(email) || isNotValidString(email) || isUndefined(password) || isNotValidString(password)) {
       logger.warn('欄位未填寫正確')
-      res.status(400).json({
-        status: 'failed',
-        message: '欄位未填寫正確'
-      })
+      next(appError(400, '欄位未填寫正確'))
       return
     }
     if (!isValidPassword(password)) {
       logger.warn('建立使用者錯誤: 密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字')
-      res.status(400).json({
-        status: 'failed',
-        message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
-      })
+      next(appError(400,'密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'))
       return
     }
 // 暱稱 name 長度需至少 2 個字元以上
@@ -56,10 +50,7 @@ router.post('/signup', async (req, res, next) => {
 
     if (existingUser) {
       logger.warn('建立使用者錯誤: Email 已被使用')
-      res.status(409).json({
-        status: 'failed',
-        message: 'Email 已被使用'
-      })
+      next(appError(409, 'Email 已被使用'))
       return
     }
 
@@ -85,29 +76,23 @@ router.post('/signup', async (req, res, next) => {
         }
       }
     })
-  } catch (error) {
-    logger.error('建立使用者錯誤:', error)
-    next(error)
-  }
-})
-router.post('/login', async (req, res, next) => {
-  try {
-    
+  
+}
+)
+)
+
+router.post('/login', handleErrorAsync( async (req, res, next) => {
+  
     const { email, password } = req.body
     if (isUndefined(email) || isNotValidString(email) || isUndefined(password) || isNotValidString(password)) {
       logger.warn('欄位未填寫正確')
-      res.status(400).json({
-        status: 'failed',
-        message: '欄位未填寫正確'
-      })
+      next(appError(400, '欄位未填寫正確'))
       return
     }
     if (!isValidPassword(password)) {
       logger.warn('密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字')
-      res.status(400).json({
-        status: 'failed',
-        message: '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
-      })
+      next(appError(400,'密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'))
+
       return
     }
     const userRepository = dataSource.getRepository('User')
@@ -117,19 +102,14 @@ router.post('/login', async (req, res, next) => {
     })
 
     if (!existingUser) {
-      res.status(400).json({
-        status: 'failed',
-        message: '使用者不存在或密碼輸入錯誤'
-      })
+      next(appError(400,'使用者不存在或密碼輸入錯誤'))
       return
     }
     logger.info(`使用者資料: ${JSON.stringify(existingUser)}`)
+    
     const isMatch = await bcrypt.compare(password, existingUser.password)
     if (!isMatch) {
-      res.status(400).json({
-        status: 'failed',
-        message: '使用者不存在或密碼輸入錯誤'
-      })
+      next(appError(400,'使用者不存在或密碼輸入錯誤'))
       return
     }
     const token = await generateJWT({
@@ -148,14 +128,11 @@ router.post('/login', async (req, res, next) => {
         }
       }
     })
-  } catch (error) {
-    logger.error('登入錯誤:', error)
-    next(error)
-  }
-})
+  
+}))
 
-router.get('/profile', auth, async (req, res, next) => {
-  try {
+router.get('/profile', auth, handleErrorAsync(async (req, res, next) => {
+
     const { id } = req.user
     console.log(id);
     
@@ -168,9 +145,6 @@ router.get('/profile', auth, async (req, res, next) => {
       where: { id }
     })
 
-    
-
-
     res.status(200).json({
       status: 'success',
       data: {
@@ -178,14 +152,11 @@ router.get('/profile', auth, async (req, res, next) => {
         name: user.name
       }
     })
-  } catch (error) {
-    logger.error('取得使用者資料錯誤:', error)
-    next(error)
-  }
-})
 
-router.put('/profile', auth, async (req, res, next) => {
-  try {
+}))
+
+router.put('/profile', auth, handleErrorAsync(async (req, res, next) => {
+ 
     const { id } = req.user
     const { name } = req.body
     if (isUndefined(name) || isNotValidString(name)) {
@@ -193,9 +164,6 @@ router.put('/profile', auth, async (req, res, next) => {
       next(appError(400, '欄位未填寫正確'))
       return
     }
-
-
-
 
     const userRepository = dataSource.getRepository('User')
  //檢查使用者名稱為變更
@@ -226,9 +194,7 @@ router.put('/profile', auth, async (req, res, next) => {
     res.status(200).json({
       status: 'success'
     })
-  } catch (error) {
-    logger.error('取得使用者資料錯誤:', error)
-    next(error)
-  }
-})
+ 
+}))
+
 module.exports = router
