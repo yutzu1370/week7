@@ -10,6 +10,7 @@ const userRouter = require('./routes/user')
 const adminRouter = require('./routes/admin')
 const courseRouter = require('./routes/course')
 const coachRouter = require('./routes/coach')
+const uploadRouter = require('./routes/upload')
 const appError = require('./utils/appError')
 
 const app = express()
@@ -37,6 +38,7 @@ app.use('/api/coaches', coachRouter)
 app.use('/api/user', userRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/course', courseRouter)
+app.use('/api/upload', uploadRouter)
 
 //404
 app.use((req, res, next) => {
