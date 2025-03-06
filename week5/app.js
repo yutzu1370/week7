@@ -35,7 +35,7 @@ app.get('/healthcheck', (req, res) => {
 app.use('/api/credit-package', creditPackageRouter)
 app.use('/api/coaches/skill', skillRouter)
 app.use('/api/coaches', coachRouter)
-app.use('/api/user', userRouter)
+app.use('/api/users', userRouter)
 app.use('/api/admin', adminRouter)
 app.use('/api/course', courseRouter)
 app.use('/api/upload', uploadRouter)
