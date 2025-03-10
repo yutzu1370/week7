@@ -37,7 +37,7 @@ app.use('/api/coaches/skill', skillRouter)
 app.use('/api/coaches', coachRouter)
 app.use('/api/users', userRouter)
 app.use('/api/admin', adminRouter)
-app.use('/api/course', courseRouter)
+app.use('/api/courses', courseRouter)
 app.use('/api/upload', uploadRouter)
 
 //404

@@ -111,3 +111,5 @@ upload/
 .vscode/
 .idea/
 .DS_Store
+
+.history
