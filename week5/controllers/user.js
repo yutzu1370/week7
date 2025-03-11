@@ -2,7 +2,7 @@ const { dataSource } = require('../db/data-source')
 const config = require('../config/index')
 const bcrypt = require('bcrypt')
 const validator = require('validator');
-const { isUndefined, isNotValidString,isValidPassword } = require('../utils/validUtils')
+const { isUndefined, isNotValidString, isValidPassword } = require('../utils/validUtils')
 const {generateJWT} = require('../utils/generateJWT')
 const appError = require('../utils/appError')
 const logger = require('../utils/logger')('UserController')
@@ -180,6 +180,51 @@ const userController = {
     res.status(200).json({
       status: 'success'
     })
+  },
+
+  async putPassword(req, res, next) {
+    const { id } = req.user
+		const { password, new_password, confirm_new_password } = req.body
+		if (isNotValidString(password) || isNotValidString(new_password) || isNotValidString(confirm_new_password)) {
+			return next(appError(400, '欄位未填寫正確'))
+		}
+		if (isValidPassword(password) || isValidPassword(new_password) || isValidPassword(confirm_new_password)) {
+			return next(appError(400, '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'))
+		}
+		if (new_password === password) {
+			return next(appError(400, '新密碼不能與舊密碼相同'))
+		}
+		if (new_password !== confirm_new_password ) {
+			return next(appError(400, '新密碼與驗證新密碼不一致'))
+		}
+		const userRepo = dataSource.getRepository('User')
+    const findUser = await userRepo.findOne({
+      select: ['password'],
+      where: { id }
+    })
+
+    if (!findUser) {
+      return next(appError(400, '使用者不存在'))
+    }
+
+    const isMatch = await bcrypt.compare(password, findUser.password)
+    
+    if (!isMatch) {
+      return next(appError(400, '密碼輸入錯誤'))
+    }
+    
+    //const hashPassword = await bcrypt.hash(new_password, 10)
+
+    // return next(appError(400, '密碼輸入錯誤'))
+		
+    // 密碼加密並更新資料
+		//const hashPassword = 
+		// return next(appError(400, '更新密碼失敗'))
+
+		res.status(200).json({
+			status: 'success',
+			data: null,
+		})
   }
 }
 

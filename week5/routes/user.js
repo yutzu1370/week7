@@ -10,5 +10,5 @@ router.post('/login', handleErrorAsync(userController.postLogin));
 
 router.get('/profile', auth, handleErrorAsync(userController.getProfile));
 router.put('/profile', auth, handleErrorAsync(userController.putProfile));
-
+router.put('/password', auth, handleErrorAsync(userController.putPassword));
 module.exports = router
