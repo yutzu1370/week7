@@ -9,4 +9,6 @@ router.get('/', handleErrorAsync(coachController.getCoaches))
 
 router.get('/:coachId', handleErrorAsync(coachController.getCoachDetail))
 
+router.get('/:coachId/courses', handleErrorAsync(coachController.getCoachCourses))
+
 module.exports = router

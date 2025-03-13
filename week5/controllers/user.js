@@ -122,7 +122,6 @@ const userController = {
 
   async getProfile (req, res, next)  {
     const { id } = req.user
-    console.log(id);
     
     if(isNotValidString(id)){
       return next(appError(400, '欄位未填寫正確'));
@@ -188,7 +187,7 @@ const userController = {
 		if (isNotValidString(password) || isNotValidString(new_password) || isNotValidString(confirm_new_password)) {
 			return next(appError(400, '欄位未填寫正確'))
 		}
-		if (isValidPassword(password) || isValidPassword(new_password) || isValidPassword(confirm_new_password)) {
+		if (!isValidPassword(password) || !isValidPassword(new_password) || !isValidPassword(confirm_new_password)) {
 			return next(appError(400, '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'))
 		}
 		if (new_password === password) {
@@ -213,18 +212,49 @@ const userController = {
       return next(appError(400, '密碼輸入錯誤'))
     }
     
-    //const hashPassword = await bcrypt.hash(new_password, 10)
-
-    // return next(appError(400, '密碼輸入錯誤'))
-		
-    // 密碼加密並更新資料
-		//const hashPassword = 
-		// return next(appError(400, '更新密碼失敗'))
+    const hashPassword = await bcrypt.hash(new_password, 10)
+    const updateUser = await userRepo.update({
+      id
+    }, {
+      password: hashPassword
+    })
+    if(updateUser.affected === 0){
+      return next(appError(400, '更新密碼失敗'))
+    }
 
 		res.status(200).json({
 			status: 'success',
 			data: null,
 		})
+  },
+
+  async getCreditPackage(req, res, next) {
+    const { id } = req.user
+    const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
+    
+    const purchases = await creditPurchaseRepo.createQueryBuilder('creditPurchase')
+      .select([
+        'creditPurchase.purchased_credits',
+        'creditPurchase.price_paid',
+        'creditPurchase.purchaseAt',
+        'creditPackage.name'
+      ])
+      .leftJoin('creditPurchase.CreditPackage', 'creditPackage')
+      .where('creditPurchase.user_id = :userId', {userId:id })
+      .getMany();
+    
+    // 格式化結果，將 CreditPackage.name 提取到主層級
+    const formattedPurchases = purchases.map(purchase => ({
+      purchased_credits: purchase.purchased_credits,
+      price_paid: purchase.price_paid,
+      name: purchase.CreditPackage.name,
+      purchase_at: purchase.purchaseAt
+    }));
+    
+    res.status(200).json({
+      status: 'success',
+      data: formattedPurchases
+    })
   }
 }
 

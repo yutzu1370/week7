@@ -13,6 +13,6 @@ router.put('/coaches/courses/:courseId', auth, isCoach, handleErrorAsync(adminCo
 
 router.post('/coaches/:userId', handleErrorAsync(adminController.postUserToCoach))
 
-
+router.get('/coaches/courses', auth, isCoach, handleErrorAsync(adminController.getCoachCourses))
 
 module.exports = router

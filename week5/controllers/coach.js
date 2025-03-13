@@ -103,7 +103,51 @@ const coachController = {
         }
       });
    
+    },
+  
+  async getCoachCourses(req, res, next) {
+    const { coachId } = req.params;
+    if (isNotValidString(coachId) || isUndefined(coachId) || !isValidUUID(coachId)) {
+      res.status(400).json({
+        status: 'failed',
+        message: '欄位未填寫正確'
+      });
+      return;
     }
-  };
+    const courseRepo = dataSource.getRepository('Course');
+    const courses = await courseRepo.createQueryBuilder('course')
+      .select([
+        'course.id',
+        'course.name',
+        'course.description',
+        'course.start_at',
+        'course.end_at',
+        'course.max_participants',
+        'user.name',
+        'skill.name'
+      ])
+      .leftJoin('course.User', 'user')
+      .leftJoin('course.Skill', 'skill')
+      .where('course.user_id = :coachId', { coachId })
+      .getMany();
+
+      const formattedCourses = courses.map(course => ({
+        id: course.id,
+        coach_name: course.User.name,
+        skill_name: course.Skill.name,
+        name: course.name,
+        description: course.description,
+        start_at: course.start_at,
+        end_at: course.end_at,
+        max_participants: course.max_participants
+      }));
+      
+    res.status(200).json({
+      status: 'success',
+      data: formattedCourses
+    })
+  
+  }
+} 
 
 module.exports = coachController;

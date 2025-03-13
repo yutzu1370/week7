@@ -2,7 +2,7 @@ const { dataSource } = require('../db/data-source')
 const appError = require('../utils/appError')
 const moment = require('moment')
 const { isNotValidString, isNotValidInteger, isUndefined } = require('../utils/validUtils')
-//const logger = require('../utils/logger')('AdminController')
+const logger = require('../utils/logger')('AdminController')
 
 const adminController = {
   async postCourses (req, res, next)  {
@@ -231,6 +231,51 @@ const adminController = {
         user: savedUser,
         coach: savedCoach
       }
+    })
+  },
+
+  async getCoachCourses(req, res, next) {
+    const { id } = req.user;
+    const courseRepo = dataSource.getRepository('Course');
+    const courses = await courseRepo.createQueryBuilder('course')
+      .select([
+        'course.id',
+        'course.name',
+        'course.start_at',
+        'course.end_at',
+        'course.max_participants',
+       // 'courseBooking.status', 
+        'COUNT(courseBooking.id) AS participants'
+      ])
+      .leftJoin('course.User', 'user')
+      .leftJoin('CourseBooking', 'courseBooking', 'courseBooking.course_id = course.id') // 使用正確的連接條件
+      .where('course.user_id = :coachId', { coachId: id })
+      .andWhere('courseBooking.cancelledAt IS NULL') // 排除已取消的預訂
+      .groupBy('course.id, user.name')
+      .getRawMany();
+
+      /*const formattedCourses = courses.map(course => ({
+        id: course.id,
+        coach_name: course.name,
+        name: course.name,
+        start_at: course.start_at,
+        end_at: course.end_at,
+        max_participants: course.max_participants,
+        participants: parseInt(course.participants, 10)
+      }));*/
+
+    res.status(200).json({
+      status: 'success',
+      data: courses/* [
+        {
+          "id": "1c8da31a-5fd2-44f3-897e-4a259e7ec62b",COURSE
+          "status": "報名中",COURSE_BOOKING
+          "name" : "瑜伽課程",COURSE
+          "start_at" : "2025-01-01 16:00:00",COURSE
+          "end_at" : "2025-01-01 18:00:00",COURSE
+          "max_participants" : 10,COURSE
+          "participants": 5 算COURSE_BOOKING  ID多少 就多少個   要刪除有cancelled_at有紀錄的地方     }
+      ]*/
     })
   }
 }
