@@ -114,6 +114,21 @@ const coachController = {
       });
       return;
     }
+
+    const coachRepo = dataSource.getRepository('Coach');
+    const coach = await coachRepo.findOne({
+      where: {
+        id: coachId
+      }
+    });
+
+    if (!coach) {
+      return res.status(400).json({
+        status: 'failed',
+        message: '找不到該教練'
+      });
+    }
+
     const courseRepo = dataSource.getRepository('Course');
     const courses = await courseRepo.createQueryBuilder('course')
       .select([

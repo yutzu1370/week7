@@ -1,7 +1,7 @@
 const { dataSource } = require('../db/data-source')
 const appError = require('../utils/appError')
 const moment = require('moment')
-const { isNotValidString, isNotValidInteger, isUndefined } = require('../utils/validUtils')
+const { isNotValidString, isNotValidInteger, isUndefined, isNotValidUUID } = require('../utils/validUtils')
 const logger = require('../utils/logger')('AdminController')
 
 const adminController = {
@@ -247,7 +247,7 @@ const adminController = {
        // 'courseBooking.status', 
         'COUNT(courseBooking.id) AS participants'
       ])
-      .leftJoin('course.User', 'user')
+      .leftJoin('User', 'user', 'user.id = course.user_id')
       .leftJoin('CourseBooking', 'courseBooking', 'courseBooking.course_id = course.id') // 使用正確的連接條件
       .where('course.user_id = :coachId', { coachId: id })
       .andWhere('courseBooking.cancelledAt IS NULL') // 排除已取消的預訂
@@ -277,7 +277,125 @@ const adminController = {
           "participants": 5 算COURSE_BOOKING  ID多少 就多少個   要刪除有cancelled_at有紀錄的地方     }
       ]*/
     })
-  }
+  },
+
+  async getCoachCourseDetail(req, res, next) {
+    const { userId } = req.user
+    const { courseId } = req.params
+    if (isUndefined(courseId) || !isNotValidUUID(courseId)) {
+      res.status(400).json({
+        status: 'failed',
+        message: '欄位填寫錯誤'
+      })
+      return
+    }
+    const coachRepo = dataSource.getRepository('Coach')
+    const coach = await coachRepo.findOne({
+      where: { user_id: userId }
+    })
+    if (!coach) {
+      res.status(400).json({
+        status: 'failed',
+        message: '找不到該教練'
+      })
+      return
+    }
+    const courseRepository = AppDataSource.getRepository('Course')
+    const course = await courseRepository
+      .createQueryBuilder('course')
+      .leftJoinAndSelect('course.Skill', 'skill')
+      .leftJoinAndSelect('course.User', 'user')
+      .where('course.id = :id', { id: courseId })
+      .select([
+        'course.id',
+        'skill.name as skill_name',//要做測試把別名拿掉
+        'course.name',
+        'course.description',
+        'course.start_at',
+        'course.end_at',
+        'course.max_participants'
+      ])
+      .getRawOne()
+    
+    if (!course) {
+      return res.status(404).json({
+        status: 'error',
+        message: '找不到課程'
+      })
+    }  
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        id: course.id,
+        skill_name: course.skill_name,
+        name: course.name,
+        description: course.description,
+        start_at: course.start_at,
+        end_at: course.end_at,
+        max_participants: course.max_participants
+      }
+    })
+  },
+
+  async getCoach(req, res, next) {
+    const { id } = req.user
+    const coachRepo = dataSource.getRepository('Coach')
+    const coach = await coachRepo.findOne({
+      where: { user_id: id }
+    })
+    if (!coach) {
+      res.status(400).json({
+        status: 'failed',
+        message: '找不到該教練'
+      })
+      return
+    }
+    const coachDetail = await coachRepo
+      .createQueryBuilder('coach')
+      .leftJoinAndSelect('coach.User', 'user')
+      // 通过中间表关联技能
+      .leftJoin('user.CoachSkills', 'coachSkills')
+      .leftJoin('coachSkills.Skill', 'skill')
+      .where('coach.id = :id', { id })
+      .select([
+        'coach.id',
+        'coach.experience_years',
+        'coach.description',
+        'coach.profile_image_url',
+        'skill.id as skill_id'
+      ])
+      .getRawMany()
+
+    if (!coach || coach.length === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: '找不到教練'
+      })
+    }
+
+    // 整理技能ID列表
+    const skillIds = coach
+      .map(item => item.skill_id)
+      .filter(id => id !== null)
+
+
+
+    
+    res.status(200).json({
+      status: 'success',
+      data: /* {
+        "id": "1c8da31a-5fd2-44f3-897e-4a259e7ec62b",COACH
+        "experience_years" : 1,COACH
+        "description" : "瑜伽教練",COACH
+        "profile_image_url" : "https://...",COACH
+        "skill_ids": ["1c8da31a-5fd2-44f3-897e-4a259e7ec62b",...] SKILL
+    }
+      */
+    
+  })
 }
+
+  
 
 module.exports = adminController

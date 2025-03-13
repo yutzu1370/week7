@@ -15,4 +15,8 @@ router.post('/coaches/:userId', handleErrorAsync(adminController.postUserToCoach
 
 router.get('/coaches/courses', auth, isCoach, handleErrorAsync(adminController.getCoachCourses))
 
+router.get('/coaches/courses/:courseId', auth, isCoach, handleErrorAsync(adminController.getCoachCourseDetail))
+
+router.get('/coaches', auth, isCoach, handleErrorAsync(adminController.getCoach))
+
 module.exports = router
