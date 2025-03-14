@@ -255,7 +255,64 @@ const userController = {
       status: 'success',
       data: formattedPurchases
     })
+  },
+
+  async getCourse(req, res, next) {
+    const { id } = req.user
+    const courseBookingRepo = dataSource.getRepository('CourseBooking');
+    const bookings = await courseBookingRepo
+    .createQueryBuilder('courseBooking')
+    .leftJoinAndSelect('courseBooking.Course', 'course')  // 連接 Course 表
+    .leftJoinAndSelect('course.User', 'coach')  // 連接教練的 User 表
+    .where('courseBooking.user_id = :userId', { userId: id })
+    .andWhere('courseBooking.cancelledAt IS NULL')  // 排除已取消的預約
+    .select([
+      'course.name AS name',
+      'courseBooking.course_id AS course_id',
+      'coach.name AS coach_name',
+      'courseBooking.status AS status',
+      'course.start_at AS start_at',
+      'course.end_at AS end_at',
+      'course.meeting_url AS meeting_url'
+    ])
+    .getRawMany();
+
+    const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
+    // 查詢特定用戶的購買總額
+    const result = await creditPurchaseRepo
+    .createQueryBuilder('creditPurchase')
+    .select('SUM(creditPurchase.purchased_credits)', 'total_credits')
+    .where('creditPurchase.user_id = :userId', { userId: id })
+    .getRawOne();
+    const credit_balance = parseInt(result.total_credits) || 0; // 如果沒有購買紀錄，預設為 0
+    const credit_remain = credit_balance - bookings.length;
+
+
+    res.status(200).json({
+      status: 'success',
+      data: {
+        credit_remain: credit_remain,
+        credit_usage: bookings.length,
+        course_booking: bookings
+      }
+            /**{
+        "credit_remain": 10,
+        "credit_usage": 2,
+        "course_booking": [
+            {
+              "name": "瑜伽班",//從COURSE.NAME撈
+              "course_id": "1c8da31a-5fd2-44f3-897e-4a259e7ec62b" 從COURSE_BOOKING.COURSE_ID撈
+              "coach_name": "測試教練",從USER.NAME撈
+              "status": "pending",//從COURSE_BOOKING.STATUS撈
+              "start_at": "2024-12-31T16:00:00Z",從COURSE_BOOKING.START_AT撈
+              "end_at": "2024-12-31T18:00:00Z",從COURSE_BOOKING.END_AT撈
+              "meeting_url": "https://..."從COURSE_BOOKING.MEETING_URL撈
+            },...
+          ],
+      } */
+    })
   }
+
 }
 
 module.exports = userController

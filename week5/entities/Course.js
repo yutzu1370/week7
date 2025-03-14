@@ -72,6 +72,12 @@ module.exports = new EntitySchema({
         referencedColumnName: 'id',
         foreignKeyConstraintName: 'courses_skill_id_fk'
       }
+    },
+    // Course 端的關聯定義
+    CourseBooking: {
+      target: 'CourseBooking',
+      type: 'one-to-many',
+      inverseSide: 'Course'  // 指向 CourseBooking 中的關係名
     }
   }
 })

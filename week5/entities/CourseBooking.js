@@ -27,7 +27,8 @@ module.exports = new EntitySchema({
     status: {
       type: 'varchar',
       length: 20,
-      nullable: false
+      nullable: false,
+      default: 'pending'
     },
     joinAt: {
       type: 'timestamp',

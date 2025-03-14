@@ -1,7 +1,7 @@
 const { dataSource } = require('../db/data-source')
 const appError = require('../utils/appError')
 const moment = require('moment')
-const { isNotValidString, isNotValidInteger, isUndefined, isNotValidUUID } = require('../utils/validUtils')
+const { isNotValidString, isNotValidInteger, isUndefined, isValidUUID } = require('../utils/validUtils')
 const logger = require('../utils/logger')('AdminController')
 
 const adminController = {
@@ -244,102 +244,42 @@ const adminController = {
         'course.start_at',
         'course.end_at',
         'course.max_participants',
-       // 'courseBooking.status', 
+        'MAX(courseBooking.status) as status', // 使用 MAX 來獲取一個狀態
         'COUNT(courseBooking.id) AS participants'
       ])
-      .leftJoin('User', 'user', 'user.id = course.user_id')
-      .leftJoin('CourseBooking', 'courseBooking', 'courseBooking.course_id = course.id') // 使用正確的連接條件
+      .leftJoin('CourseBooking', 'courseBooking', 'courseBooking.course_id = course.id')
       .where('course.user_id = :coachId', { coachId: id })
-      .andWhere('courseBooking.cancelledAt IS NULL') // 排除已取消的預訂
-      .groupBy('course.id, user.name')
+      .andWhere('courseBooking.cancelledAt IS NULL')
+      .groupBy('course.id')
       .getRawMany();
 
-      /*const formattedCourses = courses.map(course => ({
-        id: course.id,
-        coach_name: course.name,
-        name: course.name,
-        start_at: course.start_at,
-        end_at: course.end_at,
-        max_participants: course.max_participants,
+      const formattedCourses = courses.map(course => ({
+        id: course.course_id,           // 注意：可能需要改成 course_id
+        status: course.status,      // 改成 max_status
+        name: course.course_name,       // 注意：可能需要改成 course_name
+        start_at: course.course_start_at, // 注意：可能需要改成 course_start_at
+        end_at: course.course_end_at,     // 注意：可能需要改成 course_end_at
+        max_participants: course.course_max_participants, // 注意：可能需要改成 course_max_participants
         participants: parseInt(course.participants, 10)
-      }));*/
+      }));
 
     res.status(200).json({
       status: 'success',
-      data: courses/* [
-        {
-          "id": "1c8da31a-5fd2-44f3-897e-4a259e7ec62b",COURSE
-          "status": "報名中",COURSE_BOOKING
-          "name" : "瑜伽課程",COURSE
-          "start_at" : "2025-01-01 16:00:00",COURSE
-          "end_at" : "2025-01-01 18:00:00",COURSE
-          "max_participants" : 10,COURSE
-          "participants": 5 算COURSE_BOOKING  ID多少 就多少個   要刪除有cancelled_at有紀錄的地方     }
-      ]*/
+      data: formattedCourses
     })
   },
 
   async getCoachCourseDetail(req, res, next) {
-    const { userId } = req.user
+    const { id } = req.user
     const { courseId } = req.params
-    if (isUndefined(courseId) || !isNotValidUUID(courseId)) {
+    console.log(courseId, id)
+    if (isUndefined(courseId) || !isValidUUID(courseId) || isUndefined(id) || !isValidUUID(id)) {
       res.status(400).json({
         status: 'failed',
         message: '欄位填寫錯誤'
       })
       return
     }
-    const coachRepo = dataSource.getRepository('Coach')
-    const coach = await coachRepo.findOne({
-      where: { user_id: userId }
-    })
-    if (!coach) {
-      res.status(400).json({
-        status: 'failed',
-        message: '找不到該教練'
-      })
-      return
-    }
-    const courseRepository = AppDataSource.getRepository('Course')
-    const course = await courseRepository
-      .createQueryBuilder('course')
-      .leftJoinAndSelect('course.Skill', 'skill')
-      .leftJoinAndSelect('course.User', 'user')
-      .where('course.id = :id', { id: courseId })
-      .select([
-        'course.id',
-        'skill.name as skill_name',//要做測試把別名拿掉
-        'course.name',
-        'course.description',
-        'course.start_at',
-        'course.end_at',
-        'course.max_participants'
-      ])
-      .getRawOne()
-    
-    if (!course) {
-      return res.status(404).json({
-        status: 'error',
-        message: '找不到課程'
-      })
-    }  
-
-    res.status(200).json({
-      status: 'success',
-      data: {
-        id: course.id,
-        skill_name: course.skill_name,
-        name: course.name,
-        description: course.description,
-        start_at: course.start_at,
-        end_at: course.end_at,
-        max_participants: course.max_participants
-      }
-    })
-  },
-
-  async getCoach(req, res, next) {
-    const { id } = req.user
     const coachRepo = dataSource.getRepository('Coach')
     const coach = await coachRepo.findOne({
       where: { user_id: id }
@@ -351,50 +291,139 @@ const adminController = {
       })
       return
     }
-    const coachDetail = await coachRepo
-      .createQueryBuilder('coach')
-      .leftJoinAndSelect('coach.User', 'user')
-      // 通过中间表关联技能
-      .leftJoin('user.CoachSkills', 'coachSkills')
-      .leftJoin('coachSkills.Skill', 'skill')
-      .where('coach.id = :id', { id })
+    const courseRepository = dataSource.getRepository('Course')
+    const course = await courseRepository
+      .createQueryBuilder('course')
+      .leftJoinAndSelect('course.Skill', 'skill')
+      .where('course.id = :courseId', { courseId })
+      .andWhere('course.user_id = :userId', { userId: id }) // 添加 user_id 條件
       .select([
-        'coach.id',
-        'coach.experience_years',
-        'coach.description',
-        'coach.profile_image_url',
-        'skill.id as skill_id'
+        'course.id',
+        'skill.name AS skill_name',
+        'course.name',
+        'course.description',
+        'course.start_at',
+        'course.end_at',
+        'course.max_participants'
       ])
-      .getRawMany()
-
-    if (!coach || coach.length === 0) {
-      return res.status(404).json({
+      .getRawOne();
+        
+    if (!course) {
+      res.status(404).json({
         status: 'error',
-        message: '找不到教練'
+        message: '找不到課程'
       })
-    }
+      return
+    }  
+    const formattedCourse = {
+      id: course.course_id,
+      skill_name: course.skill_name,
+      name: course.course_name,
+      description: course.course_description,
+      start_at: course.course_start_at,
+      end_at: course.course_end_at,
+      max_participants: course.course_max_participants
+    };
 
-    // 整理技能ID列表
-    const skillIds = coach
-      .map(item => item.skill_id)
-      .filter(id => id !== null)
-
-
-
-    
     res.status(200).json({
       status: 'success',
-      data: /* {
-        "id": "1c8da31a-5fd2-44f3-897e-4a259e7ec62b",COACH
-        "experience_years" : 1,COACH
-        "description" : "瑜伽教練",COACH
-        "profile_image_url" : "https://...",COACH
-        "skill_ids": ["1c8da31a-5fd2-44f3-897e-4a259e7ec62b",...] SKILL
+      data: formattedCourse
+    })
+  },
+
+ async getCoachDetail(req, res, next) {
+  const { id } = req.user
+  const coach = await coachRepo.findOne({
+    where: { user_id: id }
+  });
+
+  if (!coach) {
+    return res.status(404).json({
+      status: 'error',
+      message: '找不到教練'
+    });
+  }
+  // 使用 QueryBuilder 查詢教練資料和相關技能
+ // 再查詢教練的技能
+ const coachWithSkills = await coachRepo
+  .createQueryBuilder('coach')
+  .leftJoinAndSelect('coach.User', 'user')  // 使用實體中定義的關聯
+  .leftJoin('user.CoachSkills', 'coachSkills')  // 假設 User 實體中有 CoachSkills 關聯
+  .leftJoin('coachSkills.Skill', 'skill')  // 假設 CoachSkills 實體中有 Skill 關聯
+  .where('coach.user_id = :userId', { userId: id })
+  .select([
+    'coach.id',
+    'coach.experience_years',
+    'coach.description',
+    'coach.profile_image_url',
+    'skill.id AS skill_id'
+  ])
+  .getRawMany();
+/*
+// 整理技能ID列表
+  const skillIds = coachWithSkills
+    .map(item => item.skill_id)
+    .filter(id => id != null);
+
+
+
+  // 整理回應格式
+  const formattedResponse = {
+    id: coachDetail[0].coach_id,
+    experience_years: coachDetail[0].coach_experience_years,
+    description: coachDetail[0].coach_description,
+    profile_image_url: coachDetail[0].coach_profile_image_url,
+    skill_ids: skillIds
+  };
+*/
+  res.status(200).json({
+    status: 'success',
+    data: coachWithSkills
+  });
+},
+
+  async putCoach(req, res, next) {
+    const { id } = req.user
+    const {
+      experience_years: experienceYears,
+      description,
+      profile_image_url: profileImageUrl = null,
+      skill_ids: skillIds
+    } = req.body
+    if (isUndefined(experienceYears) || isNotValidInteger(experienceYears) ||
+      isUndefined(description) || isNotValidString(description) ||
+      isUndefined(profileImageUrl) || isNotValidString(profileImageUrl) ||
+      !profileImageUrl.startsWith('https') ||
+      isUndefined(skillIds) || !Array.isArray(skillIds)) {     
+      res.status(400).json({
+        status: 'failed',
+        message: '欄位未填寫正確'
+      })
+      return
     }
-      */
-    
-  })
+    if (skillIds.length === 0 || skillIds.every(skill => isUndefined(skill) || isNotValidString(skill))) {
+      logger.warn('欄位未填寫正確')
+      res.status(400).json({
+        status: 'failed',
+        message: '欄位未填寫正確'
+      })
+      return
+    }
+    const coachRepo = dataSource.getRepository('Coach')
+    const coach = await coachRepo.findOne({
+      select: ['id'],
+      where: { user_id: id }
+    })
+    await coachRepo.update({
+      id: coach.id
+    }, {
+      experience_years: experienceYears,
+      description,
+      profile_image_url: profileImageUrl
+    })
 }
+}
+
 
   
 
